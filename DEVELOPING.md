@@ -118,6 +118,42 @@ Writing tests:
 - Tests fail on console errors, uncaught exceptions and responses with status 400 or above. Allow expected ones with `problems.allow()` and a comment.
 - Restore global settings that a test changes.
 
+## Finding Assessment Synchronization
+
+The finding audit drawer shows decision ownership on both project findings and
+the global vulnerability audit. Missing ownership is shown as unknown, not inherited.
+Policy ownership is informational. The server controls policy precedence.
+
+- **Save** applies the editable local decision and takes local ownership.
+- **Take local ownership** takes the current server decision without submitting
+  unsaved fields. This preserves source provenance when the decision is unchanged.
+- **Release local ownership** requires confirmation. It clears the local decision
+  fields but keeps local comments. Synchronization resolves separately; the UI
+  does not predict its result. Unsaved edits stay in the draft.
+- Release is only offered for explicit `LOCAL` ownership. Legacy responses do not
+  prove whether a policy owns a decision, so release is not offered for unknown ownership.
+- **History** contains only local history. Adding a comment does not submit analysis
+  fields or discard an analysis draft.
+- **Sources** appears only when the API returns readable source assessments.
+  It shows each source project, component, original details, and full original history.
+  Source text is read-only and is never copied into local Details or History.
+  Sources can remain visible after taking local ownership.
+
+Finding writes use `COMMENT_ONLY`, `TAKE_LOCAL`, or `RELEASE_LOCAL` and include the
+loaded `expectedDecisionVersion`, including zero. Each successful write is followed
+by a GET. If that GET fails, the write is not retried. Further writes are blocked
+until **Reload assessment** succeeds.
+
+A 409 retains the draft and blocks writes. Use **Reload for review** to show the
+current server decision next to the retained draft. Then choose **Keep draft and
+use reviewed version** before explicitly submitting again. Reload never retries a write.
+Other request errors retain the draft and use the existing error notification.
+
+`AuditPanel` enables this contract only with `assessment-sync`. `FindingAudit`
+opts in for both consumers. Policy violation analysis does not opt in and keeps
+its existing endpoint payloads and UI. The focused endpoint-boundary regressions
+are in `e2e/flows/assessment-sync.spec.mjs`.
+
 ## Localization
 
 Locale files live in [`src/i18n/locales`](src/i18n/locales).

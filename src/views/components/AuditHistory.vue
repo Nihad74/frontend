@@ -32,7 +32,7 @@
         <b-button
           type="submit"
           variant="primary"
-          :disabled="!comment || auditDrawer.saving"
+          :disabled="!comment || blocked || auditDrawer.saving"
           >{{ $t('message.add_comment') }}</b-button
         >
       </div>
@@ -48,6 +48,7 @@ export default {
   props: {
     comments: { type: Array, default: () => [] },
     submit: Function,
+    blocked: Boolean,
   },
   data: () => ({ comment: '' }),
   watch: {
@@ -60,7 +61,7 @@ export default {
       return common.formatTimestamp(timestamp, true);
     },
     async add() {
-      if (!this.comment || this.auditDrawer.saving) {
+      if (!this.comment || this.blocked || this.auditDrawer.saving) {
         return;
       }
       // The comment is already on its way, so leaving mid-post must not ask about it.

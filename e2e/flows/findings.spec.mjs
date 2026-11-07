@@ -62,10 +62,15 @@ async function openSeededFinding(page) {
 }
 
 // Answers saves with the submitted analysis, which leaves the shared finding untouched.
-function mockSave(page, handler = () => {}) {
-  return page.route('**/api/v1/analysis', async (route) => {
+async function mockSave(page, handler = () => {}) {
+  let analysis;
+  await page.route('**/api/v1/analysis?*', (route) =>
+    analysis ? route.fulfill({ json: analysis }) : route.fallback(),
+  );
+  await page.route('**/api/v1/analysis', async (route) => {
     await handler(route);
-    await route.fulfill({ json: route.request().postDataJSON() });
+    analysis = route.request().postDataJSON();
+    await route.fulfill({ json: analysis });
   });
 }
 
@@ -224,19 +229,17 @@ test('keep an unsaved comment when declining to discard it', async ({
 });
 
 test('add a comment without unsaved analysis changes', async ({ page }) => {
+  let analysis = { analysisState: 'IN_TRIAGE', analysisComments: [] };
   await page.route('**/api/v1/analysis?*', (route) =>
-    route.fulfill({
-      json: { analysisState: 'IN_TRIAGE', analysisComments: [] },
-    }),
+    route.fulfill({ json: analysis }),
   );
-  await page.route('**/api/v1/analysis', (route) =>
-    route.fulfill({
-      json: {
-        analysisState: 'IN_TRIAGE',
-        analysisComments: [{ timestamp: 0, comment: 'Needs a closer look' }],
-      },
-    }),
-  );
+  await page.route('**/api/v1/analysis', (route) => {
+    analysis = {
+      ...analysis,
+      analysisComments: [{ timestamp: 0, comment: 'Needs a closer look' }],
+    };
+    return route.fulfill({ json: analysis });
+  });
   const drawer = await openSeededFinding(page);
   await chooseRadio(drawer, 'Exploitable');
   await drawer.getByRole('tab', { name: 'History' }).click();
@@ -245,7 +248,8 @@ test('add a comment without unsaved analysis changes', async ({ page }) => {
   const request = page.waitForRequest('**/api/v1/analysis');
   await history.getByLabel('Comment').press('ControlOrMeta+Enter');
   const body = (await request).postDataJSON();
-  expect(body.analysisState).toBe('IN_TRIAGE');
+  expect(body.decisionAction).toBe('COMMENT_ONLY');
+  expect(body).not.toHaveProperty('analysisState');
   expect(body.comment).toBe('Needs a closer look');
   await expect(history).toContainText('Needs a closer look');
   await expect(page.getByText('Updated', { exact: true })).toBeVisible();

@@ -51,7 +51,7 @@
         <b-button
           type="submit"
           variant="primary"
-          :disabled="!dirty"
+          :disabled="!dirty || blocked"
           :title="$t('message.save_shortcut')"
           aria-keyshortcuts="Control+Enter Meta+Enter"
           >{{ $t('message.save') }}</b-button
@@ -67,6 +67,9 @@ export default {
   props: {
     loaded: Object,
     failed: Boolean,
+    blocked: Boolean,
+    preserveDraft: Boolean,
+    keepDraft: Boolean,
     submit: Function,
     states: Array,
     stateDescription: String,
@@ -88,8 +91,16 @@ export default {
   },
   watch: {
     loaded: {
-      handler() {
-        this.reset();
+      handler(loaded, previous) {
+        if (!this.preserveDraft || !previous) {
+          this.form = { ...loaded };
+        } else if (!this.keepDraft) {
+          // Refresh untouched fields, but keep edits made before a comment write.
+          for (const field of Object.keys(loaded)) {
+            if (this.form[field] === previous[field])
+              this.form[field] = loaded[field];
+          }
+        }
       },
       immediate: true,
     },
@@ -105,7 +116,7 @@ export default {
       this.form = { ...this.loaded };
     },
     async save() {
-      if (!this.dirty || this.auditDrawer.saving) {
+      if (!this.dirty || this.blocked || this.auditDrawer.saving) {
         return;
       }
       // The changes are already on their way, so leaving mid-save must not ask about them.
@@ -119,7 +130,10 @@ export default {
         this.$toastr.w(this.$t('condition.unsuccessful_action'));
       } finally {
         this.auditDrawer.setSaving(false);
-        this.$nextTick(() => this.auditDrawer.reclaimFocus(this.$el));
+        this.$nextTick(() => {
+          this.auditDrawer.setDirty(this, this.dirty);
+          this.auditDrawer.reclaimFocus(this.$el);
+        });
       }
     },
   },

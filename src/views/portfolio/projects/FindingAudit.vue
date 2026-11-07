@@ -1,5 +1,6 @@
 <template>
   <audit-panel
+    assessment-sync
     :url="`${$api.BASE_URL}/${$api.URL_ANALYSIS}`"
     :ids="{
       project: projectUuid,
