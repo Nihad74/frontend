@@ -188,7 +188,12 @@ export default {
             status === 200 || status === this.noAnalysisStatus,
         },
       );
-      this.update((response.status === 200 && response.data) || {});
+      // No analysis yet is a neutral decision; only a stored row without origin is legacy.
+      this.update(
+        response.status === 200 && response.data
+          ? response.data
+          : { decisionOrigin: 'NEUTRAL' },
+      );
     },
     put(analysis, comment = null) {
       return this.axios.put(this.url, { ...this.ids, ...analysis, comment });
